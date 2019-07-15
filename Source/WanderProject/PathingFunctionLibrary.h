@@ -23,11 +23,14 @@ public:
 	static TArray<TSet<TTuple<int, int>>> neighbors;
 	static TArray<TTuple<int, int>> directions;
 
+	UFUNCTION()
+	static void clearAdjacencyList();
+
 	UFUNCTION(BlueprintCallable)
 	static void updateAdjacencyList(TArray<int> occupiedNodes);
 	
 	UFUNCTION(BlueprintCallable)
-	static int getClosestEnemyNodeAndPath(int node, TArray<int> enemyNodes, TArray<int>& pathToClosestEnemy);
+	static int getClosestEnemyNodeAndPath(int node, TArray<int> occupiedByAlliesNodes, TArray<int> enemyNodes, TArray<int>& pathToClosestEnemy, bool& noPathAvailable);
 
 private:
 	

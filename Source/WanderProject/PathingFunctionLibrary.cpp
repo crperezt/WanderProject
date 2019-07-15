@@ -3,6 +3,9 @@
 
 #include "PathingFunctionLibrary.h"
 
+#define D(x) if(GEngine){GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Yellow, TEXT(x));}
+#define D(x,y) if (GEngine) { GEngine->AddOnScreenDebugMessage(-1, 15.0f, FColor::Yellow, FString::Printf(TEXT(x), y)); }
+
 const int UPathingFunctionLibrary::rows = 6;
 const int UPathingFunctionLibrary::columns = 8;
 
@@ -10,7 +13,7 @@ const int UPathingFunctionLibrary::columns = 8;
 TArray<TTuple<int, int>> UPathingFunctionLibrary::allNodes;
 
 /** Adjacency list for an undirected graph representing the board
-Array contains the board positions as tuples of all neighbors to the node given by the index */
+Each array element contains a set of tuples, the set including the board positions of all neighbors to the node given by the index */
 TArray<TSet<TTuple<int, int>>> UPathingFunctionLibrary::neighbors;
 TArray<TTuple<int, int>> UPathingFunctionLibrary::directions;
 
@@ -32,13 +35,29 @@ UPathingFunctionLibrary::UPathingFunctionLibrary() {
 		}
 	}
 
-	//initialize neighbors
-	TArray<int> occupiedNodes;
+	//clearAdjacencyList();
+}
+
+void UPathingFunctionLibrary::clearAdjacencyList() {
+	neighbors = TArray<TSet<TTuple<int, int>>>();
 	for (int i = 0; i < columns*rows; i++) {
-		occupiedNodes.Add(0);
 		neighbors.Add(TSet<TTuple<int, int>>());
 	}
-	updateAdjacencyList(occupiedNodes);
+
+	/*
+	TTuple<int, int> newNeighbor;
+	TTuple<int, int> iNode;
+	const int EMPTY = 0;
+	for (int i = 0; i < neighbors.Num(); i++) {
+		for (int j = 0; j < directions.Num(); j++) {
+			iNode = allNodes[i];
+			newNeighbor = TTuple<int, int>(allNodes[i].Get<0>() + directions[j].Get<0>(), allNodes[i].Get<1>() + directions[j].Get<1>());
+			if ((newNeighbor.Get<0>() < rows) && (newNeighbor.Get<0>() >= 0) && (newNeighbor.Get<1>() < columns) && (newNeighbor.Get<1>() >= 0)) {
+				neighbors[i].Add(newNeighbor);
+			}
+		}
+	}
+	*/
 }
 
 /** Builds representation of the board as an undirected graph stored as an adjacency list.
@@ -48,13 +67,19 @@ Output: neighbors array is populated and excludes occupied nodes.
 */
 void UPathingFunctionLibrary::updateAdjacencyList(TArray<int> occupiedNodes) {
 	TTuple<int, int> newNeighbor;
+	int newNeighborAsInt;
 	TTuple<int, int> iNode;
+	const int EMPTY = 0;
+
+	clearAdjacencyList();
+
 	for (int i = 0; i < neighbors.Num(); i++) {
 		for (int j = 0; j < directions.Num(); j++) {
 			iNode = allNodes[i];
 			newNeighbor = TTuple<int, int>(allNodes[i].Get<0>() + directions[j].Get<0>(), allNodes[i].Get<1>() + directions[j].Get<1>());
 			if ((newNeighbor.Get<0>() < rows) && (newNeighbor.Get<0>() >= 0) && (newNeighbor.Get<1>() < columns) && (newNeighbor.Get<1>() >= 0)) {
-				if (occupiedNodes[i] == 0) {
+				newNeighborAsInt = newNeighbor.Get<0>() * 8 + newNeighbor.Get<1>();
+				if (occupiedNodes[newNeighborAsInt] == EMPTY) {
 					neighbors[i].Add(newNeighbor);
 				}
 			}
@@ -73,7 +98,7 @@ void UPathingFunctionLibrary::updateAdjacencyList(TArray<int> occupiedNodes) {
  pathToClosestEnemy: array that contains the board positions that form the shortest path to the closest enemy. The path goes from the last entry in the array to the first (i.e., the enemy position).
 */
 
-int UPathingFunctionLibrary::getClosestEnemyNodeAndPath(int node, TArray<int> enemyNodes, TArray<int>& pathToClosestEnemy)
+int UPathingFunctionLibrary::getClosestEnemyNodeAndPath(int node, TArray<int> occupiedByAlliesNodes, TArray<int> enemyNodes, TArray<int>& pathToClosestEnemy, bool& noPathAvailable)
 {
 	TArray<int> discoveryState;
 	TArray<int> distance;
@@ -90,6 +115,8 @@ int UPathingFunctionLibrary::getClosestEnemyNodeAndPath(int node, TArray<int> en
 	queue.Add(node);
 	int iNode;
 	int nodeNumber;
+
+	updateAdjacencyList(occupiedByAlliesNodes);
 
 	while (queue.Num() > 0) {
 		iNode = queue.Last();
@@ -122,10 +149,18 @@ int UPathingFunctionLibrary::getClosestEnemyNodeAndPath(int node, TArray<int> en
 		}
 	}
 
-	int iPath = predecessor[closestEnemy];
-	while (predecessor[iPath] != node) {
-		pathToClosestEnemy.Add(predecessor[iPath]);
-		iPath = predecessor[iPath];
+	//if no path available
+	if (predecessor[closestEnemy] == -1) {
+		noPathAvailable = true;
+		return closestEnemy;
 	}
-	return closestEnemy;
+	else {
+		int iPath = predecessor[closestEnemy];
+		while (predecessor[iPath] != node) {
+			pathToClosestEnemy.Add(predecessor[iPath]);
+			iPath = predecessor[iPath];
+		}
+		noPathAvailable = false;
+		return closestEnemy;
+	}
 }
